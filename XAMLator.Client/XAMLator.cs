@@ -4,7 +4,7 @@ namespace XAMLator.Client
 {
 	public class XAMLatorMonitor
 	{
-		TcpCommunicatorServer server;
+		ITcpCommunicatorServer server;
 
 		public static XAMLatorMonitor Init(IIDE ide)
 		{
@@ -14,10 +14,17 @@ namespace XAMLator.Client
 
 		public static XAMLatorMonitor Instance { get; private set; }
 
-		XAMLatorMonitor(IIDE ide)
+		internal XAMLatorMonitor(IIDE ide, ITcpCommunicatorServer server = null)
 		{
 			IDE = ide;
-			server = new TcpCommunicatorServer(Constants.DEFAULT_PORT);
+			if (server != null)
+			{
+				this.server = server;
+			}
+			else
+			{
+				server = new TcpCommunicatorServer();
+			}
 			ide.DocumentChanged += HandleDocumentChanged;
 		}
 
@@ -25,8 +32,13 @@ namespace XAMLator.Client
 
 		public void StartMonitoring()
 		{
+			StartMonitoring(Constants.DEFAULT_PORT);
+		}
+
+		internal void StartMonitoring(int port)
+		{
 			IDE.MonitorEditorChanges();
-			server.StartListening();
+			server.StartListening(port);
 		}
 
 		async void HandleDocumentChanged(object sender, DocumentChangedEventArgs e)
@@ -36,25 +48,31 @@ namespace XAMLator.Client
 				return;
 			}
 
-			var classDecl = await DocumentParser.ParseDocument(e.Filename, e.Text, e.SyntaxTree, e.SemanticModel);
-
-			if (classDecl == null)
+			try
 			{
-				return;
+				var classDecl = await DocumentParser.ParseDocument(e.Filename, e.Text, e.SyntaxTree, e.SemanticModel);
+
+				if (classDecl == null)
+				{
+					return;
+				}
+
+				EvalRequest request = new EvalRequest
+				{
+					Declarations = classDecl.Code,
+					NeedsRebuild = classDecl.NeedsRebuild,
+					OriginalTypeName = classDecl.FullNamespace,
+					NewTypeName = classDecl.CurrentFullNamespace,
+					Xaml = classDecl.Xaml,
+					XamlResourceName = classDecl.XamlResourceId,
+					StyleSheets = classDecl.StyleSheets
+				};
+				await server.Send(request);
 			}
-
-			EvalRequest request = new EvalRequest
+			catch (Exception ex)
 			{
-				Declarations = classDecl.Code,
-				NeedsRebuild = classDecl.NeedsRebuild,
-				OriginalTypeName = classDecl.FullNamespace,
-				NewTypeName = classDecl.CurrentFullNamespace,
-				Xaml = classDecl.Xaml,
-				XamlResourceName = classDecl.XamlResourceId,
-				StyleSheets = classDecl.StyleSheets
-			};
-
-			await server.Send(request);
+				//FIXME: Send an error command
+			}
 		}
 	}
 }

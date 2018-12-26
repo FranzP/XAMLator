@@ -71,15 +71,17 @@ namespace XAMLator.Server
 			sw.Start();
 
 			currentEvalRequest = code;
-			object newType;
-
 			if (evaluator.IsEvaluationSupported)
 			{
 				if (code.NeedsRebuild)
 				{
-					await evaluator.EvaluateCode(code.Declarations, evalResult);
+					await evaluator.EvaluateCode($"new {code.NewTypeName} ()", evalResult, code.Declarations);
+					if (!evalResult.HasErrors && evalResult.HasResult)
+					{
+						evalResult.ResultType = evalResult.Result.GetType();
+					}
 				}
-				if (!evalResult.HasErrors)
+				else
 				{
 					evalResult.ResultType = GetTypeByName(code.NewTypeName);
 				}
@@ -135,6 +137,10 @@ namespace XAMLator.Server
 		static string LoadResource(AssemblyName assemblyName, string name)
 		{
 			Log.Information($"Resolving resource {name}");
+			if (currentEvalRequest == null)
+			{
+				return null;
+			}
 			if (name == currentEvalRequest.XamlResourceName)
 			{
 				return currentEvalRequest.Xaml;

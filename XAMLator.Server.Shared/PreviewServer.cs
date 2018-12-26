@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net;
-using System.Reflection;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -22,31 +19,40 @@ namespace XAMLator.Server
 		TaskScheduler mainScheduler;
 		IPreviewer previewer;
 		bool isRunning;
-		TcpCommunicatorClient client;
+		ITcpCommunicatorClient client;
 		ErrorViewModel errorViewModel;
+		IUIToolkit uiToolkit;
 
 		internal static PreviewServer Instance => serverInstance;
 
-		PreviewServer()
+		internal PreviewServer()
 		{
-			client = new TcpCommunicatorClient();
-			client.DataReceived += HandleDataReceived;
 			errorViewModel = new ErrorViewModel();
 		}
 
 		public static Task<bool> Run(Dictionary<Type, object> viewModelsMapping = null,
 			IPreviewer previewer = null, string ideIP = null, int idePort = Constants.DEFAULT_PORT)
 		{
-			return Instance.RunInternal(viewModelsMapping, previewer, ideIP, idePort);
+			return Instance.RunInternal(viewModelsMapping, previewer, ideIP, idePort,
+				new UIToolkit(), new TcpCommunicatorClient());
 		}
 
 		internal async Task<bool> RunInternal(Dictionary<Type, object> viewModelsMapping,
-			IPreviewer previewer, string ideIP, int idePort)
+			IPreviewer previewer, string ideIP, int idePort, IUIToolkit uiToolkit, ITcpCommunicatorClient client)
 		{
 			if (isRunning)
 			{
 				return true;
 			}
+
+			this.uiToolkit = uiToolkit;
+
+			if (client == null)
+			{
+				client = new TcpCommunicatorClient();
+			}
+			this.client = client;
+			client.DataReceived += HandleDataReceived;
 
 			mainScheduler = TaskScheduler.FromCurrentSynchronizationContext();
 			await RegisterDevice(ideIP, idePort);
@@ -98,7 +104,8 @@ namespace XAMLator.Server
 
 		async void HandleDataReceived(object sender, object e)
 		{
-			await HandleEvalRequest((e as JContainer).ToObject<EvalRequest>());
+			EvalRequest req = e as EvalRequest ?? (e as JContainer).ToObject<EvalRequest>();
+			await HandleEvalRequest(req);
 		}
 
 		async Task HandleEvalRequest(EvalRequest request)
@@ -108,28 +115,24 @@ namespace XAMLator.Server
 			try
 			{
 				result = await vm.Eval(request, mainScheduler, CancellationToken.None);
-				if (result.ResultType != null)
+				if (result.HasResult || result.ResultType != null)
 				{
-					var tcs = new TaskCompletionSource<bool>();
-					Xamarin.Forms.Device.BeginInvokeOnMainThread(async () =>
-					{
-						try
-						{
-							await previewer.Preview(result);
-							tcs.SetResult(true);
-						}
-						catch (Exception ex)
-						{
-							errorViewModel.SetError("Oh no! An exception!", ex);
-							await previewer.NotifyError(errorViewModel);
-							tcs.SetException(ex);
-						}
-					});
-					await tcs.Task;
+					await uiToolkit.RunInUIThreadAsync(async () =>
+					   {
+						   try
+						   {
+							   await previewer.Preview(result);
+						   }
+						   catch (Exception ex)
+						   {
+							   errorViewModel.SetError("Oh no! An exception!", ex);
+							   await previewer.NotifyError(errorViewModel);
+						   }
+					   });
 				}
 				else
 				{
-					Xamarin.Forms.Device.BeginInvokeOnMainThread(async () =>
+					await uiToolkit.RunInUIThreadAsync(async () =>
 					{
 						errorViewModel.SetError("Oh no! An evaluation error!", result);
 						await previewer.NotifyError(errorViewModel);
