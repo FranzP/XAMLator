@@ -25,7 +25,7 @@ namespace XAMLator.Server.Tests
 		{
 			try
 			{
-				DataReceived?.Invoke(this, obj);
+				DataReceived?.Invoke(this, Serializer.DeserializeJson(Serializer.SerializeJson(obj)));
 				return Task.FromResult(true);
 			}
 			catch (Exception ex)

@@ -104,7 +104,7 @@ namespace XAMLator.Server
 
 		async void HandleDataReceived(object sender, object e)
 		{
-			EvalRequest req = e as EvalRequest ?? (e as JContainer).ToObject<EvalRequest>();
+			EvalRequest req = (e as JContainer).ToObject<EvalRequest>();
 			await HandleEvalRequest(req);
 		}
 
