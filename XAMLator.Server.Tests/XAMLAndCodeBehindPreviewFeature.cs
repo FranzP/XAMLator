@@ -50,7 +50,7 @@ namespace XAMLator.Server.Tests
 		{
 			await When_the_code_changes("TestPage.xaml.cs", @"public new {}");
 			Assert.AreEqual(PreviewState.Error, previewer.State);
-			Assert.AreEqual("Oh no! An evaluation error!", previewer.ErrorViewModel.Title);
+			Assert.AreEqual("Oh no! An exception!", previewer.ErrorViewModel.Title);
 		}
 	}
 }

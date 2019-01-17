@@ -54,7 +54,7 @@ namespace XAMLator.Client
 					return;
 				}
 
-				EvalRequest request = new EvalRequest
+				EvalRequestMessage request = new EvalRequestMessage
 				{
 					Declarations = classDecl.Code,
 					NeedsRebuild = classDecl.NeedsRebuild,
@@ -68,7 +68,9 @@ namespace XAMLator.Client
 			}
 			catch (Exception ex)
 			{
-				//FIXME: Send an error command
+				Log.Exception(ex);
+				await server.Send(new ErrorMessage($"Error parsing {e.Filename}",
+					ex.ToString()));
 			}
 		}
 	}

@@ -104,11 +104,25 @@ namespace XAMLator.Server
 
 		async void HandleDataReceived(object sender, object e)
 		{
-			EvalRequest req = (e as JContainer).ToObject<EvalRequest>();
-			await HandleEvalRequest(req);
+			var container = e as JContainer;
+			string type = (string)container["Type"];
+
+			if (type == typeof(EvalRequestMessage).Name)
+			{
+				await HandleEvalRequest(container.ToObject<EvalRequestMessage>());
+			}
+			else if (type == typeof(ErrorMessage).Name)
+			{
+				var errorMessage = container.ToObject<ErrorMessage>();
+				await uiToolkit.RunInUIThreadAsync(async () =>
+				{
+					errorViewModel.SetError("Oh no! An exception!", errorMessage.Exception);
+					await previewer.NotifyError(errorViewModel);
+				});
+			}
 		}
 
-		async Task HandleEvalRequest(EvalRequest request)
+		async Task HandleEvalRequest(EvalRequestMessage request)
 		{
 			EvalResponse evalResponse = new EvalResponse();
 			EvalResult result;

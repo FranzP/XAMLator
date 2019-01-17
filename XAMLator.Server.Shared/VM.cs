@@ -13,7 +13,7 @@ namespace XAMLator.Server
 	public class VM
 	{
 		static MethodInfo loadXAML;
-		static EvalRequest currentEvalRequest;
+		static EvalRequestMessage currentEvalRequest;
 		readonly object mutex = new object();
 		IEvaluator evaluator;
 
@@ -38,7 +38,7 @@ namespace XAMLator.Server
 			loadXAML.Invoke(null, new object[] { view, currentEvalRequest.Xaml });
 		}
 
-		public Task<EvalResult> Eval(EvalRequest code, TaskScheduler mainScheduler, CancellationToken token)
+		public Task<EvalResult> Eval(EvalRequestMessage code, TaskScheduler mainScheduler, CancellationToken token)
 		{
 			var tcs = new TaskCompletionSource<EvalResult>();
 			var r = new EvalResult();
@@ -60,7 +60,7 @@ namespace XAMLator.Server
 			}
 		}
 
-		async Task<EvalResult> EvalOnMainThread(EvalRequest code, CancellationToken token)
+		async Task<EvalResult> EvalOnMainThread(EvalRequestMessage code, CancellationToken token)
 		{
 			EvalResult evalResult = new EvalResult();
 
