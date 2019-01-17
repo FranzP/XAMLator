@@ -17,14 +17,11 @@ namespace XAMLator.Client
 		internal XAMLatorMonitor(IIDE ide, ITcpCommunicatorServer server = null)
 		{
 			IDE = ide;
-			if (server != null)
-			{
-				this.server = server;
-			}
-			else
+			if (server == null)
 			{
 				server = new TcpCommunicatorServer();
 			}
+			this.server = server;
 			ide.DocumentChanged += HandleDocumentChanged;
 		}
 
